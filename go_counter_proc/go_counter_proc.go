@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 )
@@ -44,9 +44,10 @@ func countGo(url string) (siteStat, error) {
 // counts and prints the number of "Go" in the body of every entered url,
 // returns the total number of "Go" in all urls
 // input parameter k is the number of simultaneousely fetched urls
-func InputCountGo(inpSrc *os.File, k int) int {
+//func InputCountGo(inpSrc *os.File, k int) int {
+func InputCountGo(inpSrc io.Reader, k int) int {
 	if inpSrc == nil {
-		inpSrc = os.Stdin
+		//inpSrc = io.Reader(os.Stdin)
 	}
 	if k == 0 {
 		k = 5
@@ -62,7 +63,10 @@ func InputCountGo(inpSrc *os.File, k int) int {
 		for link := range urlsCh {
 			go func(link string) {
 				tokens <- struct{}{} // wait for finishing of started more than limit goroutines
-				siteData, _ := countGo(link)
+				siteData, err := countGo(link)
+				if err != nil {
+					fmt.Errorf("with url %s error %v", link, err)
+				}
 				fmt.Printf("Count for %s: %d\n", siteData.url, siteData.numGo)
 				numGoList <- siteData.numGo
 				<-tokens
@@ -82,7 +86,8 @@ func InputCountGo(inpSrc *os.File, k int) int {
 		scanner := bufio.NewScanner(inpSrc)
 		for scanner.Scan() {
 			wg.Add(1)
-			urlsCh <- scanner.Text()
+			addText := scanner.Text()
+			urlsCh <- addText
 		}
 		inpListRdy <- true
 	}()
